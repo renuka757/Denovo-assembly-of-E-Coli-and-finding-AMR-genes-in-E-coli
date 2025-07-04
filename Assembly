@@ -1,0 +1,40 @@
+Samples
+prefetch SRR10003462
+prefetch SRR10003603
+
+fastq-dump --split-files SRR10003462
+fastq-dump --split-files SRR10003603
+
+fastqc SRR10003462_1.fastq SRR10003462_2.fastq
+fastqc SRR10003603_1.fastq SRR10003603_2.fastq
+
+spades.py -1 SRR10003462_1.fastq -2 SRR10003462_2.fastq -o spades_corrected --only-error-correction
+
+spades.py -1 spades_corrected/corrected/SRR10003462_100.0.0.cor.fastq.gz \
+          -2 spades_corrected/corrected/SRR10003462_200.0.0.cor.fastq.gz \
+          -o Spades_assembled_careful --only-assembler --careful
+
+quast -l "Spades_assembled,Spades_careful,Megahit" \
+      /mnt/d/bacgenomics/Spades_assembled/contigs.fasta \
+      /mnt/d/bacgenomics/Spades_assembled_careful/contigs.fasta \
+      /mnt/d/bacgenomics/megahit_assemb/final.contigs.fa
+
+Taxonomic Classification with Kraken2
+#Minikraken 
+wget -c https://genome-idx.s3.amazonaws.com/kraken/minikraken2_v1_8GB_201904.tgz
+
+
+kraken2 --db kraken2db/minikraken2_v1_8GB_201904.tgz Spades_assembled_careful/contigs.fasta --output species --report sample2report -t 4
+kraken2 --db kraken2db/minikraken2_v1_8GB_201904.tgz Spades_assembled_careful/contigs.fasta --output species -t 4
+
+kraken2 --db /mnt/d/bacgenomics/kraken2db/minikraken2_v1_8GB contigs.fasta --output -kraksample2 --report kraksample2report.txt --classified-out classified.fasta
+Remove Contamination
+
+filterbyname.sh in=classified.fasta out=EColi_clean.fasta names=file.txt include=t substring=t
+annotation 
+
+prokka EColi_clean.fasta --outdir sample1 -- prefix EColi --species Escherichia --species coli
+
+amrfinder -p test_prot.fa -g test_prot.gff --plus
+
+amrfinder -n EColi_clean.fasta -p sample1/PROKKA_07032025.faa --gff sample1/PROKKA_07032025.gff --plus -a prokka -O Escherichia -o try.tsv
